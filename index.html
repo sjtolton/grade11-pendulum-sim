@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade 11 Physics: Conservation of Mechanical Energy — Pendulum Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter & JetBrains Mono Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom range slider styling for crisp lab-instrument feel */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            background: #e2e8f0;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4f46e5;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            margin-top: -6px;
+            transition: transform 0.1s ease, background-color 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.12);
+            background: #4338ca;
+        }
+        input[type="range"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        input[type="range"]:disabled::-webkit-slider-thumb {
+            background: #94a3b8;
+            transform: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation / Lab Header -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                    <!-- Pendulum Icon SVG -->
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <line x1="4" y1="3" x2="20" y2="3" stroke-linecap="round"/>
+                        <line x1="12" y1="3" x2="17" y2="15" stroke-linecap="round"/>
+                        <circle cx="17.8" cy="17.2" r="2.8" fill="currentColor" fill-opacity="0.3"/>
+                        <path d="M7 17.2 A 6 6 0 0 0 17.8 17.2" stroke-dasharray="2 2"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base sm:text-lg font-bold tracking-tight">Pendulum Energy Lab</h1>
+                        <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
+                            SPH3U • Grade 11 Physics
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Conservation of Mechanical Energy ($E_T = E_g + E_k$)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 text-xs">
+                <div class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 font-mono text-slate-300">
+                    <span class="text-slate-400">Constants:</span> <span class="text-emerald-400 font-semibold">g = 9.81 m/s²</span> • <span class="text-sky-400">Friction = 0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        <!-- Left / Center Column: Apparatus Canvas & Controls (7 cols on lg) -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+
+            <!-- Simulation Canvas Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <!-- Canvas Top Status Bar -->
+                <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        <span id="statusText" class="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                            Ready — Set Release Height & Press Release
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs font-mono text-slate-600">
+                        <span>Bob Mass: <strong id="badgeMass" class="text-slate-900">2.00 kg</strong></span>
+                        <span class="text-slate-300">|</span>
+                        <span>Datum: <strong class="text-slate-900">Tabletop (h = 0.00 m)</strong></span>
+                    </div>
+                </div>
+
+                <!-- Interactive Canvas Container -->
+                <div id="canvasWrapper" class="relative w-full h-[380px] sm:h-[430px] bg-gradient-to-b from-slate-50 via-white to-slate-50 select-none">
+                    <canvas id="simCanvas"></canvas>
+
+                    <!-- Floating Quick Legend in Top-Right of Canvas -->
+                    <div class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm border border-slate-200/80 rounded-xl px-3 py-2 text-[11px] shadow-xs pointer-events-none space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-0.5 bg-indigo-500 inline-block border-t border-dashed border-indigo-600"></span>
+                            <span class="text-slate-600">Release / Max Height (<span class="font-mono font-semibold text-indigo-700">h₁ = h₂</span>)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-0.5 bg-emerald-500 inline-block border-t border-dashed border-emerald-600"></span>
+                            <span class="text-slate-600">Lowest Point (<span class="font-mono font-semibold text-emerald-700">h_bottom</span>)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-1.5 bg-amber-700/80 rounded-xs inline-block"></span>
+                            <span class="text-slate-600">Tabletop Reference (<span class="font-mono font-semibold">0.00 m</span>)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Primary Action & Parameter Control Bar -->
+                <div class="p-4 bg-slate-50/80 border-t border-slate-200 space-y-4">
+                    <!-- Action Buttons Row -->
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2.5">
+                            <button id="btnRelease" type="button"
+                                class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-sm transition cursor-pointer">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
+                                </svg>
+                                <span id="btnReleaseLabel">Release Pendulum</span>
+                            </button>
+
+                            <button id="btnReset" type="button"
+                                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 border border-slate-300 font-semibold text-sm shadow-xs transition cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Reset
+                            </button>
+                        </div>
+
+                        <!-- Speed Toggle (1.0x vs 0.5x Slow-Mo) -->
+                        <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
+                            <span class="text-xs font-medium text-slate-500">Playback:</span>
+                            <button id="btnSpeedNormal" type="button"
+                                class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 transition cursor-pointer">
+                                1.0× Real-Time
+                            </button>
+                            <button id="btnSpeedSlow" type="button"
+                                class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer">
+                                0.5× Slow-Mo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sliders Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <!-- Initial Release Height Control -->
+                        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label for="sliderHeight" class="text-xs font-semibold text-slate-700">
+                                    Initial Release Height ($h_1$)
+                                </label>
+                                <span id="valReleaseHeight" class="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                                    0.75 m
+                                </span>
+                            </div>
+                            <input id="sliderHeight" type="range" min="0.25" max="1.05" step="0.01" value="0.75" class="w-full">
+                            <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-1">
+                                <span>0.25 m</span>
+                                <span>Above Tabletop</span>
+                                <span>1.05 m</span>
+                            </div>
+                        </div>
+
+                        <!-- Pendulum Mass Control -->
+                        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label for="sliderMass" class="text-xs font-semibold text-slate-700">
+                                    Pendulum Bob Mass ($m$)
+                                </label>
+                                <span id="valMass" class="font-mono text-sm font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                                    2.00 kg
+                                </span>
+                            </div>
+                            <input id="sliderMass" type="range" min="0.50" max="5.00" step="0.10" value="2.00" class="w-full">
+                            <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-1">
+                                <span>0.50 kg</span>
+                                <span>Bob Mass</span>
+                                <span>5.00 kg</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grade 11 Physics Step-by-Step Equation Breakdown Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <button id="toggleFormulaBtn" type="button"
+                    class="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100/80 transition flex items-center justify-between text-left cursor-pointer">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-md bg-indigo-100 text-indigo-700 font-mono font-bold text-xs flex items-center justify-center">∑E</span>
+                        <span class="text-sm font-bold text-slate-800">Grade 11 Physics Solution & Energy Derivation</span>
+                    </div>
+                    <svg id="formulaChevron" class="w-4 h-4 text-slate-500 transition-transform duration-200 rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="formulaContent" class="p-4 border-t border-slate-200 text-xs sm:text-sm space-y-3 text-slate-700">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Step 1: Speed at Lowest Point -->
+                        <div class="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/80 space-y-1.5">
+                            <div class="font-semibold text-emerald-900 text-xs uppercase tracking-wider">1. Speed at Lowest Point ($v_{\text{bottom}}$)</div>
+                            <p class="font-mono text-xs text-slate-700 leading-relaxed">
+                                E<sub>T1</sub> = E<sub>T(bottom)</sub><br>
+                                mgh<sub>1</sub> + 0 = mgh<sub>bottom</sub> + ½mv<sub>bottom</sub>²<br>
+                                <span class="text-emerald-700 font-semibold">v<sub>bottom</sub> = √[ 2g(h<sub>1</sub> − h<sub>bottom</sub>) ]</span>
+                            </p>
+                            <div id="calcSpeedStep" class="font-mono text-xs bg-white/90 p-2 rounded-lg border border-emerald-200 text-emerald-950">
+                                v = √[ 2(9.81)(0.75 − 0.20) ] = <strong>3.28 m/s</strong>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Max Height on Opposite Side -->
+                        <div class="p-3 rounded-xl bg-indigo-50/60 border border-indigo-200/80 space-y-1.5">
+                            <div class="font-semibold text-indigo-900 text-xs uppercase tracking-wider">2. Max Height on Other Side ($h_2$)</div>
+                            <p class="font-mono text-xs text-slate-700 leading-relaxed">
+                                E<sub>T1</sub> = E<sub>T2</sub> (where v<sub>2</sub> = 0 m/s)<br>
+                                mgh<sub>1</sub> + 0 = mgh<sub>2</sub> + 0<br>
+                                <span class="text-indigo-700 font-semibold">h<sub>2</sub> = h<sub>1</sub></span> (independent of mass m!)
+                            </p>
+                            <div id="calcHeightStep" class="font-mono text-xs bg-white/90 p-2 rounded-lg border border-indigo-200 text-indigo-950">
+                                h₂ = h₁ = <strong>0.75 m</strong> above tabletop
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 italic">
+                        Try changing the <strong>Pendulum Bob Mass ($m$)</strong> and re-running: notice that while $E_g$, $E_k$, and $E_T$ (in Joules) scale proportionally with mass, the speed at the bottom ($v_{\text{bottom}}$) and maximum height ($h_2$) remain unchanged because $m$ cancels out!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Telemetry, Key Measurements & Energy Bar Chart (5 cols on lg) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Key Lab Measurements Grid -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3.5">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Lab Measurements & Results</h2>
+                    <span class="text-[11px] font-mono text-slate-400">Ref: Tabletop = 0.00 m</span>
+                </div>
+
+                <!-- 4-Card Summary Grid -->
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Mass -->
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/90">
+                        <div class="text-[11px] font-semibold text-slate-500 uppercase">Pendulum Mass ($m$)</div>
+                        <div id="readoutMass" class="font-mono text-xl font-bold text-slate-900 mt-0.5">2.00 kg</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">Bob mass</div>
+                    </div>
+
+                    <!-- Height at Bottom of Swing -->
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/90">
+                        <div class="text-[11px] font-semibold text-slate-500 uppercase">Bottom Height ($h_{\text{bottom}}$)</div>
+                        <div id="readoutBottomHeight" class="font-mono text-xl font-bold text-slate-900 mt-0.5">0.20 m</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">Above tabletop</div>
+                    </div>
+
+                    <!-- Initial Release Height -->
+                    <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200">
+                        <div class="text-[11px] font-semibold text-indigo-700 uppercase">Release Height ($h_1$)</div>
+                        <div id="readoutReleaseHeight" class="font-mono text-xl font-bold text-indigo-900 mt-0.5">0.75 m</div>
+                        <div class="text-[11px] text-indigo-600/80 mt-0.5">Above tabletop ($v_1 = 0$)</div>
+                    </div>
+
+                    <!-- Max Height Reached on Other Side -->
+                    <div id="cardMaxHeight2" class="p-3 rounded-xl bg-slate-50 border border-slate-200/90 transition-colors duration-300">
+                        <div class="text-[11px] font-semibold text-slate-500 uppercase">Peak Height Other Side ($h_2$)</div>
+                        <div id="readoutPeakHeight2" class="font-mono text-xl font-bold text-slate-400 mt-0.5">— m</div>
+                        <div id="subPeakHeight2" class="text-[11px] text-slate-400 mt-0.5">Stops at opposite peak</div>
+                    </div>
+                </div>
+
+                <!-- Highlighted Speed at Lowest Point Banner -->
+                <div id="cardBottomSpeed" class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between transition-all duration-300">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-xs font-bold text-emerald-900 uppercase tracking-wide">Speed at Lowest Point ($v_{\text{bottom}}$)</span>
+                            <span id="bottomCapturedBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-emerald-600 text-white">
+                                Measured!
+                            </span>
+                        </div>
+                        <div class="text-xs text-emerald-700 mt-0.5">
+                            Maximum kinetic energy point ($h = 0.20\text{ m}$)
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div id="readoutBottomSpeed" class="font-mono text-2xl font-bold text-emerald-700">
+                            — m/s
+                        </div>
+                        <div id="readoutTheoreticalSpeed" class="font-mono text-[11px] text-emerald-600/80">
+                            Predicted: 3.28 m/s
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-Time Instantaneous Values Strip -->
+                <div class="pt-1 border-t border-slate-100 grid grid-cols-2 gap-3 text-xs">
+                    <div class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/70">
+                        <span class="text-slate-500 font-medium">Current Height ($h$):</span>
+                        <span id="liveHeight" class="font-mono font-bold text-slate-800">0.75 m</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/70">
+                        <span class="text-slate-500 font-medium">Current Speed ($v$):</span>
+                        <span id="liveSpeed" class="font-mono font-bold text-slate-800">0.00 m/s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Mechanical Energy Bar Chart Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Mechanical Energy Distribution</h2>
+                        <p class="text-xs text-slate-500">Relative to tabletop datum ($h = 0.00\text{ m}$)</p>
+                    </div>
+                    <span class="px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-mono text-xs font-semibold">
+                        E<sub>T</sub> = Const
+                    </span>
+                </div>
+
+                <!-- Energy Bars -->
+                <div class="space-y-3.5">
+                    <!-- Gravitational Potential Energy (Eg) -->
+                    <div>
+                        <div class="flex justify-between items-baseline text-xs mb-1">
+                            <span class="font-semibold text-indigo-900 flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-xs bg-indigo-500 inline-block"></span>
+                                Gravitational Potential ($E_g = mgh$)
+                            </span>
+                            <span id="valEg" class="font-mono font-bold text-indigo-700">14.72 J</span>
+                        </div>
+                        <div class="w-full h-5 bg-slate-100 rounded-lg overflow-hidden border border-slate-200/80 p-0.5">
+                            <div id="barEg" class="h-full bg-indigo-500 rounded-md transition-all duration-75" style="width: 100%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Kinetic Energy (Ek) -->
+                    <div>
+                        <div class="flex justify-between items-baseline text-xs mb-1">
+                            <span class="font-semibold text-emerald-900 flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block"></span>
+                                Kinetic Energy ($E_k = \frac{1}{2}mv^2$)
+                            </span>
+                            <span id="valEk" class="font-mono font-bold text-emerald-700">0.00 J</span>
+                        </div>
+                        <div class="w-full h-5 bg-slate-100 rounded-lg overflow-hidden border border-slate-200/80 p-0.5">
+                            <div id="barEk" class="h-full bg-emerald-500 rounded-md transition-all duration-75" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Total Mechanical Energy (ET) -->
+                    <div class="pt-1 border-t border-slate-100">
+                        <div class="flex justify-between items-baseline text-xs mb-1">
+                            <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-xs bg-amber-500 inline-block"></span>
+                                Total Mechanical Energy ($E_T = E_g + E_k$)
+                            </span>
+                            <span id="valEt" class="font-mono font-bold text-amber-700">14.72 J</span>
+                        </div>
+                        <div class="w-full h-5 bg-slate-100 rounded-lg overflow-hidden border border-slate-200/80 p-0.5">
+                            <div id="barEt" class="h-full bg-amber-500 rounded-md transition-all duration-75" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Note -->
+                <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 leading-relaxed">
+                    <strong>Note:</strong> Because the lowest point of the swing is <span class="font-mono font-semibold text-slate-800">0.20 m</span> above the tabletop, the pendulum still retains <span id="residualEgText" class="font-mono font-semibold text-indigo-700">3.92 J</span> of gravitational potential energy at the bottom of its arc.
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        /**
+         * Grade 11 Physics Pendulum & Conservation of Mechanical Energy Simulator
+         *
+         * Physical Model:
+         * - Tabletop datum: h = 0.00 m
+         * - Lowest point of swing above tabletop: h_bottom = 0.20 m
+         * - Pivot height above tabletop: h_pivot = 1.40 m
+         * - Pendulum string length: L = h_pivot - h_bottom = 1.20 m
+         * - Initial release height above tabletop: h1 in [0.25 m, 1.05 m]
+         * - Release angle from downward vertical: cos(theta_0) = (h_pivot - h1) / L
+         * - Conservation of Mechanical Energy (frictionless):
+         *      E_T = m * g * h1 = m * g * h(t) + 0.5 * m * v(t)^2
+         *      v(t) = sqrt(2 * g * (h1 - h(t)))
+         *      angular speed omega(t) = v(t) / L
+         */
+
+        // ==========================================
+        // 1. CONSTANTS & SIMULATION STATE
+        // ==========================================
+        const G = 9.81;                 // Acceleration due to gravity (m/s^2)
+        const H_BOTTOM = 0.20;          // Height of lowest swing point above tabletop (m)
+        const H_PIVOT = 1.40;           // Height of pivot point above tabletop (m)
+        const STRING_LENGTH = H_PIVOT - H_BOTTOM; // 1.20 m
+
+        const state = {
+            mass: 2.00,                 // kg
+            hRelease: 0.75,             // m above tabletop
+            theta0: 0,                  // initial angle (radians, positive = left side)
+            theta: 0,                   // current angle (radians; +left, 0=bottom, -right)
+            omega: 0,                   // angular velocity (rad/s)
+            status: 'ready',            // 'ready' | 'running' | 'completed'
+            timeScale: 1.0,             // 1.0 or 0.5
+            passedBottom: false,        // flag when bob crosses theta = 0
+            capturedBottomSpeed: null,  // m/s measured at lowest point
+            capturedPeakHeight2: null,  // m measured when stopping on opposite side
+            lastTimestamp: null
+        };
+
+        // Compute initial angle from hRelease
+        function computeInitialAngle(h1) {
+            const cosTheta = Math.max(-1, Math.min(1, (H_PIVOT - h1) / STRING_LENGTH));
+            return Math.acos(cosTheta);
+        }
+
+        // Compute height above tabletop from angle theta
+        function getHeightFromAngle(theta) {
+            return H_PIVOT - STRING_LENGTH * Math.cos(theta);
+        }
+
+        // Compute exact speed from Conservation of Mechanical Energy
+        function getSpeedFromHeight(hCurrent, h1) {
+            const deltaH = Math.max(0, h1 - hCurrent);
+            return Math.sqrt(2 * G * deltaH);
+        }
+
+        // Initialize starting state
+        state.theta0 = computeInitialAngle(state.hRelease);
+        state.theta = state.theta0;
+
+        // ==========================================
+        // 2. DOM ELEMENT REFERENCES
+        // ==========================================
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+
+        const btnRelease = document.getElementById('btnRelease');
+        const btnReleaseLabel = document.getElementById('btnReleaseLabel');
+        const btnReset = document.getElementById('btnReset');
+        const btnSpeedNormal = document.getElementById('btnSpeedNormal');
+        const btnSpeedSlow = document.getElementById('btnSpeedSlow');
+
+        const sliderHeight = document.getElementById('sliderHeight');
+        const sliderMass = document.getElementById('sliderMass');
+        const valReleaseHeight = document.getElementById('valReleaseHeight');
+        const valMass = document.getElementById('valMass');
+        const badgeMass = document.getElementById('badgeMass');
+
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        const readoutMass = document.getElementById('readoutMass');
+        const readoutBottomHeight = document.getElementById('readoutBottomHeight');
+        const readoutReleaseHeight = document.getElementById('readoutReleaseHeight');
+        const readoutPeakHeight2 = document.getElementById('readoutPeakHeight2');
+        const subPeakHeight2 = document.getElementById('subPeakHeight2');
+        const cardMaxHeight2 = document.getElementById('cardMaxHeight2');
+
+        const readoutBottomSpeed = document.getElementById('readoutBottomSpeed');
+        const readoutTheoreticalSpeed = document.getElementById('readoutTheoreticalSpeed');
+        const cardBottomSpeed = document.getElementById('cardBottomSpeed');
+        const bottomCapturedBadge = document.getElementById('bottomCapturedBadge');
+
+        const liveHeight = document.getElementById('liveHeight');
+        const liveSpeed = document.getElementById('liveSpeed');
+
+        const valEg = document.getElementById('valEg');
+        const valEk = document.getElementById('valEk');
+        const valEt = document.getElementById('valEt');
+        const barEg = document.getElementById('barEg');
+        const barEk = document.getElementById('barEk');
+        const barEt = document.getElementById('barEt');
+        const residualEgText = document.getElementById('residualEgText');
+
+        const calcSpeedStep = document.getElementById('calcSpeedStep');
+        const calcHeightStep = document.getElementById('calcHeightStep');
+        const toggleFormulaBtn = document.getElementById('toggleFormulaBtn');
+        const formulaContent = document.getElementById('formulaContent');
+        const formulaChevron = document.getElementById('formulaChevron');
+
+        // ==========================================
+        // 3. UI & READOUT SYNCHRONIZATION
+        // ==========================================
+        function updateUI() {
+            const currentH = getHeightFromAngle(state.theta);
+            const currentV = state.status === 'ready' || state.status === 'completed'
+                ? 0
+                : getSpeedFromHeight(currentH, state.hRelease);
+
+            const predictedVBottom = getSpeedFromHeight(H_BOTTOM, state.hRelease);
+
+            // Sliders & Header Badges
+            valReleaseHeight.textContent = `${state.hRelease.toFixed(2)} m`;
+            valMass.textContent = `${state.mass.toFixed(2)} kg`;
+            badgeMass.textContent = `${state.mass.toFixed(2)} kg`;
+
+            // Disable sliders while swinging or completed until reset
+            const controlsLocked = state.status !== 'ready';
+            sliderHeight.disabled = controlsLocked;
+            sliderMass.disabled = controlsLocked;
+
+            // Release Button state
+            if (state.status === 'ready') {
+                btnRelease.disabled = false;
+                btnReleaseLabel.textContent = 'Release Pendulum';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500';
+                statusText.textContent = 'Ready — Adjust Parameters or Press Release';
+            } else if (state.status === 'running') {
+                btnRelease.disabled = true;
+                btnReleaseLabel.textContent = 'Swinging...';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+                statusText.textContent = 'In Motion — Conserving Mechanical Energy';
+            } else if (state.status === 'completed') {
+                btnRelease.disabled = true;
+                btnReleaseLabel.textContent = 'Reached Max Height';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-indigo-600';
+                statusText.textContent = 'Stopped at Opposite Peak (h₂ = h₁) — Press Reset';
+            }
+
+            // Static / Captured Measurement Cards
+            readoutMass.textContent = `${state.mass.toFixed(2)} kg`;
+            readoutBottomHeight.textContent = `${H_BOTTOM.toFixed(2)} m`;
+            readoutReleaseHeight.textContent = `${state.hRelease.toFixed(2)} m`;
+            readoutTheoreticalSpeed.textContent = `Predicted: ${predictedVBottom.toFixed(2)} m/s`;
+
+            // Bottom Speed Card
+            if (state.capturedBottomSpeed !== null) {
+                readoutBottomSpeed.textContent = `${state.capturedBottomSpeed.toFixed(2)} m/s`;
+                bottomCapturedBadge.classList.remove('hidden');
+                cardBottomSpeed.classList.add('ring-2', 'ring-emerald-400/60', 'bg-emerald-50');
+            } else {
+                readoutBottomSpeed.textContent = '— m/s';
+                bottomCapturedBadge.classList.add('hidden');
+                cardBottomSpeed.classList.remove('ring-2', 'ring-emerald-400/60', 'bg-emerald-50');
+            }
+
+            // Opposite Peak Height Card
+            if (state.capturedPeakHeight2 !== null) {
+                readoutPeakHeight2.textContent = `${state.capturedPeakHeight2.toFixed(2)} m`;
+                readoutPeakHeight2.className = 'font-mono text-xl font-bold text-indigo-900 mt-0.5';
+                subPeakHeight2.textContent = 'Matches h₁ above tabletop!';
+                subPeakHeight2.className = 'text-[11px] text-indigo-600 font-medium mt-0.5';
+                cardMaxHeight2.className = 'p-3 rounded-xl bg-indigo-50/90 border border-indigo-300 ring-2 ring-indigo-400/50 transition-colors duration-300';
+            } else {
+                readoutPeakHeight2.textContent = '— m';
+                readoutPeakHeight2.className = 'font-mono text-xl font-bold text-slate-400 mt-0.5';
+                subPeakHeight2.textContent = 'Stops at opposite peak';
+                subPeakHeight2.className = 'text-[11px] text-slate-400 mt-0.5';
+                cardMaxHeight2.className = 'p-3 rounded-xl bg-slate-50 border border-slate-200/90 transition-colors duration-300';
+            }
+
+            // Live Instantaneous Telemetry
+            liveHeight.textContent = `${currentH.toFixed(2)} m`;
+            liveSpeed.textContent = `${currentV.toFixed(2)} m/s`;
+
+            // Mechanical Energy Calculations (in Joules)
+            const totalEnergy = state.mass * G * state.hRelease;
+            const potentialEnergy = state.mass * G * currentH;
+            const kineticEnergy = Math.max(0, totalEnergy - potentialEnergy);
+            const residualBottomEg = state.mass * G * H_BOTTOM;
+
+            // Scale bars relative to maximum possible total energy at max slider height (1.05 m) & current mass
+            // Or relative to current Total Energy so students clearly see Eg + Ek = 100% of ET
+            const barScaleMax = Math.max(totalEnergy, 0.01);
+            const egPct = Math.min(100, Math.max(0, (potentialEnergy / barScaleMax) * 100));
+            const ekPct = Math.min(100, Math.max(0, (kineticEnergy / barScaleMax) * 100));
+
+            valEg.textContent = `${potentialEnergy.toFixed(2)} J`;
+            valEk.textContent = `${kineticEnergy.toFixed(2)} J`;
+            valEt.textContent = `${totalEnergy.toFixed(2)} J`;
+
+            barEg.style.width = `${egPct.toFixed(1)}%`;
+            barEk.style.width = `${ekPct.toFixed(1)}%`;
+            barEt.style.width = '100%';
+
+            residualEgText.textContent = `${residualBottomEg.toFixed(2)} J`;
+
+            // Update Formula Derivation Box
+            calcSpeedStep.innerHTML = `v = √[ 2(9.81)(${state.hRelease.toFixed(2)} − ${H_BOTTOM.toFixed(2)}) ] = <strong>${predictedVBottom.toFixed(2)} m/s</strong>`;
+            calcHeightStep.innerHTML = `h₂ = h₁ = <strong>${state.hRelease.toFixed(2)} m</strong> above tabletop (E<sub>T</sub> = ${totalEnergy.toFixed(2)} J)`;
+        }
+
+        // ==========================================
+        // 4. PHYSICS INTEGRATION STEP
+        // ==========================================
+        function stepPhysics(dt) {
+            if (state.status !== 'running') return;
+
+            // Clamp dt to prevent huge jumps if tab is inactive
+            const safeDt = Math.min(dt, 0.05) * state.timeScale;
+
+            // Use small sub-steps with exact energy-conserving angular speed
+            // so the pendulum passes smoothly through theta = 0 and stops cleanly at -theta0
+            const subSteps = 12;
+            const subDt = safeDt / subSteps;
+
+            for (let i = 0; i < subSteps; i++) {
+                const prevTheta = state.theta;
+
+                // Current height & exact speed from Conservation of Mechanical Energy
+                const hCurr = getHeightFromAngle(state.theta);
+                // Add tiny epsilon near endpoints so pendulum starts moving smoothly from rest
+                const deltaH = Math.max(0, state.hRelease - hCurr);
+                let speed = Math.sqrt(2 * G * deltaH);
+
+                // Near release point, use exact kinematic acceleration d(theta)/dt = -(g/L)*sin(theta)*dt
+                // to initiate motion cleanly without zero-velocity stalling
+                const angularAccel = -(G / STRING_LENGTH) * Math.sin(state.theta);
+                state.omega += angularAccel * subDt;
+
+                // Enforce exact conservation of mechanical energy magnitude on |omega|
+                // once moving away from turning points
+                if (deltaH > 1e-6) {
+                    const exactOmegaMag = speed / STRING_LENGTH;
+                    state.omega = -exactOmegaMag; // Swinging from +theta0 (left) toward -theta0 (right)
+                }
+
+                state.theta += state.omega * subDt;
+
+                // Check if pendulum crossed the lowest point (theta = 0)
+                if (!state.passedBottom && prevTheta > 0 && state.theta <= 0) {
+                    state.passedBottom = true;
+                    state.capturedBottomSpeed = getSpeedFromHeight(H_BOTTOM, state.hRelease);
+                }
+
+                // Check if pendulum reached the maximum height on the opposite side (theta <= -theta0)
+                if (state.theta <= -state.theta0) {
+                    state.theta = -state.theta0;
+                    state.omega = 0;
+                    state.status = 'completed';
+                    state.capturedPeakHeight2 = state.hRelease;
+                    break;
+                }
+            }
+        }
+
+        // ==========================================
+        // 5. CANVAS RENDERING ENGINE
+        // ==========================================
+        function resizeCanvas() {
+            const rect = canvasWrapper.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawScene();
+        }
+
+        function drawDashedLine(x1, y1, x2, y2, color, dash = [5, 5], lineWidth = 1.5) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash(dash);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawDimensionArrow(x, yTop, yBottom, color, label, alignLeft = true) {
+            if (Math.abs(yBottom - yTop) < 8) return;
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 1.5;
+
+            // Vertical line
+            ctx.beginPath();
+            ctx.moveTo(x, yTop);
+            ctx.lineTo(x, yBottom);
+            ctx.stroke();
+
+            // Top tick & arrowhead
+            ctx.beginPath();
+            ctx.moveTo(x - 4, yTop);
+            ctx.lineTo(x + 4, yTop);
+            ctx.moveTo(x, yTop);
+            ctx.lineTo(x - 3, yTop + 5);
+            ctx.moveTo(x, yTop);
+            ctx.lineTo(x + 3, yTop + 5);
+            ctx.stroke();
+
+            // Bottom tick & arrowhead
+            ctx.beginPath();
+            ctx.moveTo(x - 4, yBottom);
+            ctx.lineTo(x + 4, yBottom);
+            ctx.moveTo(x, yBottom);
+            ctx.lineTo(x - 3, yBottom - 5);
+            ctx.moveTo(x, yBottom);
+            ctx.lineTo(x + 3, yBottom - 5);
+            ctx.stroke();
+
+            // Label pill
+            ctx.font = '600 11px "JetBrains Mono", monospace';
+            const textMetrics = ctx.measureText(label);
+            const padX = 5;
+            const boxW = textMetrics.width + padX * 2;
+            const boxH = 18;
+            const midY = (yTop + yBottom) / 2;
+            const boxX = alignLeft ? x - boxW - 7 : x + 7;
+            const boxY = midY - boxH / 2;
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxW, boxH, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, boxX + boxW / 2, midY + 0.5);
+
+            ctx.restore();
+        }
+
+        function drawScene() {
+            const width = canvasWrapper.clientWidth;
+            const height = canvasWrapper.clientHeight;
+            ctx.clearRect(0, 0, width, height);
+
+            // Coordinate mapping: meters above tabletop -> canvas pixels
+            const tableMarginBottom = 42;
+            const topMargin = 38;
+            const tableY = height - tableMarginBottom;
+            const maxVisibleMeters = 1.52; // Pivot is at 1.40 m
+            const pxPerMeter = (tableY - topMargin) / maxVisibleMeters;
+
+            const toCanvasY = (hMeters) => tableY - hMeters * pxPerMeter;
+
+            const pivotX = width * 0.52;
+            const pivotY = toCanvasY(H_PIVOT);
+            const stringPx = STRING_LENGTH * pxPerMeter;
+
+            const yRelease = toCanvasY(state.hRelease);
+            const yBottom = toCanvasY(H_BOTTOM);
+
+            // 1. Subtle Lab Background Grid
+            ctx.save();
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.35)';
+            ctx.lineWidth = 1;
+            for (let h = 0.2; h <= 1.4; h += 0.2) {
+                const gy = toCanvasY(h);
+                ctx.beginPath();
+                ctx.moveTo(45, gy);
+                ctx.lineTo(width - 20, gy);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 2. Vertical Height Scale Ruler on Far Left
+            ctx.save();
+            const rulerX = 44;
+            ctx.strokeStyle = '#94a3b8';
+            ctx.fillStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.font = '10px "JetBrains Mono", monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            ctx.beginPath();
+            ctx.moveTo(rulerX, toCanvasY(1.45));
+            ctx.lineTo(rulerX, tableY);
+            ctx.stroke();
+
+            for (let h = 0; h <= 1.401; h += 0.2) {
+                const ry = toCanvasY(h);
+                ctx.beginPath();
+                ctx.moveTo(rulerX - 5, ry);
+                ctx.lineTo(rulerX, ry);
+                ctx.stroke();
+                ctx.fillText(`${h.toFixed(1)}m`, rulerX - 8, ry);
+            }
+            ctx.restore();
+
+            // 3. Support Stand (Mounted cleanly on tabletop)
+            ctx.save();
+            const standPostX = Math.max(78, pivotX - stringPx * 0.96 - 38);
+            // Vertical support rod
+            const postGrad = ctx.createLinearGradient(standPostX - 5, 0, standPostX + 5, 0);
+            postGrad.addColorStop(0, '#64748b');
+            postGrad.addColorStop(0.5, '#94a3b8');
+            postGrad.addColorStop(1, '#475569');
+            ctx.fillStyle = postGrad;
+            ctx.fillRect(standPostX - 5, pivotY - 12, 10, tableY - (pivotY - 12));
+
+            // Stand base clamp on tabletop
+            ctx.fillStyle = '#334155';
+            ctx.beginPath();
+            ctx.roundRect(standPostX - 24, tableY - 10, 48, 10, [4, 4, 0, 0]);
+            ctx.fill();
+
+            // Horizontal crossbar to pivot
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(standPostX - 5, pivotY - 5, pivotX - standPostX + 14, 10);
+
+            // Collar clamp at intersection
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.roundRect(standPostX - 8, pivotY - 9, 16, 18, 3);
+            ctx.fill();
+            ctx.restore();
+
+            // 4. Tabletop Surface (Datum h = 0.00 m)
+            ctx.save();
+            const tableGrad = ctx.createLinearGradient(0, tableY, 0, height);
+            tableGrad.addColorStop(0, '#92400e');
+            tableGrad.addColorStop(0.18, '#78350f');
+            tableGrad.addColorStop(1, '#451a03');
+            ctx.fillStyle = tableGrad;
+            ctx.fillRect(0, tableY, width, tableMarginBottom);
+
+            // Tabletop top edge highlight
+            ctx.strokeStyle = '#b45309';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, tableY);
+            ctx.lineTo(width, tableY);
+            ctx.stroke();
+
+            // Tabletop label
+            ctx.fillStyle = '#fef3c7';
+            ctx.font = '600 11px "Inter", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('LABORATORY TABLETOP — REFERENCE DATUM (h = 0.00 m)', width / 2, tableY + tableMarginBottom / 2);
+            ctx.restore();
+
+            // 5. Reference Horizontal Dashed Lines (Release/Max Height & Bottom Height)
+            const arcLeftX = pivotX - stringPx * Math.sin(state.theta0);
+            const arcRightX = pivotX + stringPx * Math.sin(state.theta0);
+
+            // Release / Max Height line (h1 = h2)
+            drawDashedLine(
+                Math.min(arcLeftX - 24, pivotX - 110),
+                yRelease,
+                Math.max(arcRightX + 24, pivotX + 110),
+                yRelease,
+                'rgba(79, 70, 229, 0.55)',
+                [6, 4],
+                1.5
+            );
+
+            // Lowest Point line (h_bottom)
+            drawDashedLine(
+                pivotX - 125,
+                yBottom,
+                pivotX + 125,
+                yBottom,
+                'rgba(16, 185, 129, 0.65)',
+                [5, 4],
+                1.5
+            );
+
+            // 6. Pendulum Swing Trajectory Arc
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([3, 5]);
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
+            ctx.lineWidth = 1.5;
+            // Canvas angle: downward vertical is PI/2. Left (+theta0) is PI/2 + theta0; Right (-theta0) is PI/2 - theta0
+            ctx.arc(pivotX, pivotY, stringPx, Math.PI / 2 - state.theta0, Math.PI / 2 + state.theta0);
+            ctx.stroke();
+            ctx.restore();
+
+            // 7. Bob Radius (scales slightly with mass for visual intuition)
+            const bobRadius = 13 + (state.mass - 0.5) * 1.6;
+
+            // Ghost Outline at Initial Release Position (Left)
+            const leftBobX = pivotX - stringPx * Math.sin(state.theta0);
+            const leftBobY = pivotY + stringPx * Math.cos(state.theta0);
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = 'rgba(79, 70, 229, 0.55)';
+            ctx.fillStyle = 'rgba(79, 70, 229, 0.08)';
+            ctx.lineWidth = 1.5;
+            ctx.arc(leftBobX, leftBobY, bobRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // Ghost Outline at Lowest Point (Bottom Center)
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.65)';
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+            ctx.lineWidth = 1.5;
+            ctx.arc(pivotX, yBottom, bobRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // Ghost Outline at Target Max Height on Opposite Side (Right)
+            const rightBobX = pivotX + stringPx * Math.sin(state.theta0);
+            const rightBobY = pivotY + stringPx * Math.cos(state.theta0);
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = 'rgba(79, 70, 229, 0.55)';
+            ctx.fillStyle = 'rgba(79, 70, 229, 0.08)';
+            ctx.lineWidth = 1.5;
+            ctx.arc(rightBobX, rightBobY, bobRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // 8. Height Dimension Arrows Above Tabletop
+            // Left: Initial Release Height h1
+            drawDimensionArrow(
+                leftBobX - bobRadius - 14,
+                yRelease,
+                tableY,
+                '#4f46e5',
+                `h₁=${state.hRelease.toFixed(2)}m`,
+                true
+            );
+
+            // Center-Right: Lowest Point Height h_bottom
+            drawDimensionArrow(
+                pivotX + bobRadius + 16,
+                yBottom,
+                tableY,
+                '#059669',
+                `h_bot=${H_BOTTOM.toFixed(2)}m`,
+                false
+            );
+
+            // Right: When completed, show h2 dimension arrow on opposite side
+            if (state.status === 'completed') {
+                drawDimensionArrow(
+                    rightBobX + bobRadius + 14,
+                    yRelease,
+                    tableY,
+                    '#4338ca',
+                    `h₂=${state.hRelease.toFixed(2)}m`,
+                    false
+                );
+            }
+
+            // 9. Active Pendulum String & Bob
+            const bobX = pivotX - stringPx * Math.sin(state.theta);
+            const bobY = pivotY + stringPx * Math.cos(state.theta);
+
+            // String
+            ctx.save();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.moveTo(pivotX, pivotY);
+            ctx.lineTo(bobX, bobY);
+            ctx.stroke();
+            ctx.restore();
+
+            // Pivot Pin
+            ctx.save();
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(pivotX, pivotY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.arc(pivotX, pivotY, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Live Horizontal Pointer from Bob to Height Axis (when swinging)
+            if (state.status === 'running') {
+                const currentH = getHeightFromAngle(state.theta);
+                drawDashedLine(rulerX, bobY, bobX, bobY, 'rgba(245, 158, 11, 0.75)', [3, 3], 1.2);
+                ctx.save();
+                ctx.fillStyle = '#b45309';
+                ctx.font = '600 10px "JetBrains Mono", monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(`h=${currentH.toFixed(2)}m`, rulerX + 6, bobY - 6);
+                ctx.restore();
+            }
+
+            // Velocity Vector Arrow at Bottom or During Swing
+            const currentH = getHeightFromAngle(state.theta);
+            const currentV = (state.status === 'running') ? getSpeedFromHeight(currentH, state.hRelease) : 0;
+            if (state.status === 'running' && currentV > 0.08) {
+                // Tangent direction unit vector (pointing in direction of motion: +x, +sin(theta) in y)
+                const tx = Math.cos(state.theta);
+                const ty = Math.sin(state.theta);
+                const arrowLen = Math.min(75, currentV * 16);
+                const endX = bobX + tx * arrowLen;
+                const endY = bobY + ty * arrowLen;
+
+                ctx.save();
+                ctx.strokeStyle = '#10b981';
+                ctx.fillStyle = '#10b981';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(bobX, bobY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+
+                // Arrowhead
+                const angle = Math.atan2(ty, tx);
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - 8 * Math.cos(angle - Math.PI / 6), endY - 8 * Math.sin(angle - Math.PI / 6));
+                ctx.lineTo(endX - 8 * Math.cos(angle + Math.PI / 6), endY - 8 * Math.sin(angle + Math.PI / 6));
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Pendulum Bob Sphere (Metallic Slate/Indigo Gradient)
+            ctx.save();
+            const bobGrad = ctx.createRadialGradient(
+                bobX - bobRadius * 0.32,
+                bobY - bobRadius * 0.32,
+                bobRadius * 0.12,
+                bobX,
+                bobY,
+                bobRadius
+            );
+            bobGrad.addColorStop(0, '#818cf8');
+            bobGrad.addColorStop(0.55, '#4f46e5');
+            bobGrad.addColorStop(1, '#1e1b4b');
+
+            ctx.shadowColor = 'rgba(15, 23, 42, 0.25)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetY = 3;
+
+            ctx.fillStyle = bobGrad;
+            ctx.beginPath();
+            ctx.arc(bobX, bobY, bobRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+            ctx.strokeStyle = '#312e81';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Mass label inside bob
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '700 10px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${state.mass.toFixed(1)}kg`, bobX, bobY + 0.5);
+            ctx.restore();
+
+            // Callout Badge at Lowest Point once passed
+            if (state.capturedBottomSpeed !== null) {
+                ctx.save();
+                const badgeText = `v_bottom = ${state.capturedBottomSpeed.toFixed(2)} m/s`;
+                ctx.font = '700 11px "JetBrains Mono", monospace';
+                const tw = ctx.measureText(badgeText).width;
+                const bw = tw + 14;
+                const bh = 22;
+                const bx = pivotX - bw / 2;
+                const by = yBottom - bobRadius - 30;
+
+                ctx.fillStyle = '#065f46';
+                ctx.beginPath();
+                ctx.roundRect(bx, by, bw, bh, 6);
+                ctx.fill();
+
+                ctx.fillStyle = '#ecfdf5';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(badgeText, pivotX, by + bh / 2 + 0.5);
+                ctx.restore();
+            }
+        }
+
+        // ==========================================
+        // 6. MAIN ANIMATION LOOP
+        // ==========================================
+        function animate(timestamp) {
+            if (state.lastTimestamp === null) {
+                state.lastTimestamp = timestamp;
+            }
+            const dt = (timestamp - state.lastTimestamp) / 1000;
+            state.lastTimestamp = timestamp;
+
+            if (state.status === 'running') {
+                stepPhysics(dt);
+                updateUI();
+            }
+
+            drawScene();
+            requestAnimationFrame(animate);
+        }
+
+        // ==========================================
+        // 7. EVENT LISTENERS & CONTROLS
+        // ==========================================
+        function resetSimulation() {
+            state.status = 'ready';
+            state.omega = 0;
+            state.theta0 = computeInitialAngle(state.hRelease);
+            state.theta = state.theta0;
+            state.passedBottom = false;
+            state.capturedBottomSpeed = null;
+            state.capturedPeakHeight2 = null;
+            updateUI();
+            drawScene();
+        }
+
+        btnRelease.addEventListener('click', () => {
+            if (state.status !== 'ready') return;
+            state.status = 'running';
+            state.lastTimestamp = performance.now();
+            updateUI();
+        });
+
+        btnReset.addEventListener('click', () => {
+            resetSimulation();
+        });
+
+        sliderHeight.addEventListener('input', (e) => {
+            if (state.status !== 'ready') return;
+            state.hRelease = parseFloat(e.target.value);
+            state.theta0 = computeInitialAngle(state.hRelease);
+            state.theta = state.theta0;
+            updateUI();
+            drawScene();
+        });
+
+        sliderMass.addEventListener('input', (e) => {
+            if (state.status !== 'ready') return;
+            state.mass = parseFloat(e.target.value);
+            updateUI();
+            drawScene();
+        });
+
+        btnSpeedNormal.addEventListener('click', () => {
+            state.timeScale = 1.0;
+            btnSpeedNormal.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 transition cursor-pointer';
+            btnSpeedSlow.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer';
+        });
+
+        btnSpeedSlow.addEventListener('click', () => {
+            state.timeScale = 0.5;
+            btnSpeedSlow.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 transition cursor-pointer';
+            btnSpeedNormal.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer';
+        });
+
+        toggleFormulaBtn.addEventListener('click', () => {
+            const isHidden = formulaContent.classList.toggle('hidden');
+            formulaChevron.classList.toggle('rotate-180', !isHidden);
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+        window.onload = function () {
+            resizeCanvas();
+            updateUI();
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>
